@@ -12,6 +12,10 @@ import {
 export * from './model.js';
 export { createFireballSource } from './source.js';
 
+// A portable package (no i18n): the error stays English data and the layer
+// panel shows it translated.
+const msg = (text) => text;
+
 // Bolides span orders of magnitude in energy; a fixed minimum keeps a
 // sub-kiloton event visible at globe scale while log-scaling still lets a
 // Chelyabinsk-class event read as dramatically larger.
@@ -174,7 +178,7 @@ export function createFireballsLayer({ source, overlayHost } = {}) {
         if (request.signal.aborted || _request !== request || !_enabled)
           return false;
         console.warn('[Data:Fireballs] Fetch error:', e);
-        _lastError = e?.message || 'Fireball source unavailable';
+        _lastError = e?.message || msg('Fireball source unavailable');
         return false;
       } finally {
         if (_request === request) _request = null;

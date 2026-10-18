@@ -43,7 +43,7 @@ export function createFireballOverlayEntry({ id, position, impactKt, accent }) {
     id: String(id),
     position,
     variant: 'label',
-    title: formatted ? `☄ ${formatted}` : '☄ fireball',
+    title: formatted ? `☄ ${formatted}` : '☄',
     accent,
     priority: Math.round(kt * 1000),
     collisionGroup: 'ambient-label',
