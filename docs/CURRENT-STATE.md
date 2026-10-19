@@ -833,7 +833,12 @@ Fireball rendering is exposed through `./layers/fireballs`, with the same
 source/record/model/layer split as earthquakes. `src/layers/fireballs/source.js`
 reads `/api/fireballs`, a server-side proxy for NASA/JPL's Fireball and Bolide
 Data API (the upstream sends no CORS headers) with a 30 min memory + disk cache,
-single-flight refresh and serve-stale on upstream failure. `records.js` builds its
+single-flight refresh and serve-stale on upstream failure. CNEOS states that the data
+are not provided in real-time and that not all fireballs are reported, so the layer
+shows recent *published* events, not a live feed. The proxy refuses upstream redirects
+(`redirect: 'error'`), answers every upstream failure with 502, and marks a stale
+fallback `Cache-Control: no-store` so a recovered upstream is picked up on the next
+request instead of after the 30 min client cache. `records.js` builds its
 column index from the response `fields` header, signs coordinates from the N/S/E/W
 columns and treats `null` altitude/velocity as unknown rather than zero. Markers are
 static ground-clamped discs plus a point, colored and sized by approximate impact

@@ -59,9 +59,13 @@ export function fireballsProxy() {
 
   function send(res, status, body, cacheState) {
     if (res.headersSent) return;
+    // Only a fresh answer may be cached downstream. A stale copy served because the refresh
+    // failed must not be pinned in browsers or CDNs for another 30 minutes: the next request
+    // should get the chance to find the upstream healthy again.
+    const cacheable = status === 200 && cacheState !== 'STALE-ERROR';
     res.writeHead(status, {
       'Content-Type': 'application/json',
-      'Cache-Control': status === 200 ? 'public, max-age=1800' : 'no-store',
+      'Cache-Control': cacheable ? 'public, max-age=1800' : 'no-store',
       'X-GEV-Cache': cacheState,
     });
     res.end(body);
@@ -71,6 +75,9 @@ export function fireballsProxy() {
     const upstream = await fetch(FIREBALL_UPSTREAM_URL, {
       signal: AbortSignal.timeout(20000),
       headers: { Accept: 'application/json' },
+      // The URL is fixed. A redirect would send this server somewhere we never chose, so
+      // treat it as a failure instead of following it.
+      redirect: 'error',
     });
     const body = await readResponseTextCapped(upstream, maxResponseBytes);
     if (!upstream.ok) {
@@ -109,12 +116,14 @@ export function fireballsProxy() {
         const fresh = await request.promise;
         send(res, 200, fresh.body, request.shared ? 'INFLIGHT' : 'MISS');
       } catch (error) {
-        const status = Number.isInteger(error?.upstreamStatus)
-          ? error.upstreamStatus
-          : 502;
+        // Whatever went wrong upstream (HTTP error, redirect, timeout, bad JSON) is a bad
+        // gateway from the client's point of view; the upstream's own status is only logged.
+        const upstream = Number.isInteger(error?.upstreamStatus)
+          ? `upstream HTTP ${error.upstreamStatus}`
+          : 'upstream unreachable or invalid';
         if (!request.shared)
           console.warn(
-            `[fireballs-proxy] refresh failed (HTTP ${status})${stale ? ' — serving stale cache' : ''}`,
+            `[fireballs-proxy] refresh failed (${upstream})${stale ? ' — serving stale cache' : ''}`,
           );
         if (stale) {
           send(res, 200, stale.body, 'STALE-ERROR');
@@ -122,7 +131,7 @@ export function fireballsProxy() {
         }
         send(
           res,
-          status,
+          502,
           JSON.stringify({ error: 'NASA/JPL fireball API unavailable' }),
           'NONE',
         );
